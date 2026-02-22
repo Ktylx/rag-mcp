@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - rag-network
+    # Скачиваем модель при первом запуске
+    command: >
+      sh -c "ollama pull phi3:mini && ollama serve"
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-mcp-server
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - CHROMA_DATA_DIR=/app/chroma_data
+    volumes:
+      - ./chroma_data:/app/chroma_data
+      - ./sample_docs:/app/sample_docs
+    depends_on:
+      ollama:
+        condition: service_started
+    networks:
+      - rag-network
+
+volumes:
+  ollama_data:
+
+networks:
+  rag-network:
+    driver: bridge
