@@ -135,6 +135,7 @@ def generate_node(state: RAGState) -> RAGState:
     question = state["question"]
     documents = state["graded_documents"]
     sources = state["sources"]
+    retry_count = state["retry_count"]
     
     if not documents:
         return {
@@ -159,10 +160,12 @@ def generate_node(state: RAGState) -> RAGState:
     generation = response.content.strip()
     
     logger.info(f"Generated response: {generation[:100]}...")
+    logger.info(f"[generate_node] Before: retry_count={retry_count}, After: retry_count={retry_count + 1}")
     
     return {
         **state,
         "generation": generation,
+        "retry_count": retry_count + 1,
     }
 
 
@@ -277,12 +280,25 @@ def should_regenerate(state: RAGState) -> str:
     """
     is_grounded = state["is_grounded"]
     retry_count = state["retry_count"]
+    broaden_count = state["broaden_count"]
+    
+    # Детальное логирование для отладки
+    logger.info(f"[should_regenerate] retry_count={retry_count}, broaden_count={broaden_count}, is_grounded={is_grounded}")
+    
+    # Защита от бесконечного цикла - проверяем общий лимит итераций
+    total_iterations = retry_count + broaden_count
+    if total_iterations >= config.MAX_TOTAL_ITERATIONS:
+        logger.warning(f"Max total iterations reached: {total_iterations}")
+        return "end"
     
     if is_grounded:
+        logger.info("[should_regenerate] -> end (grounded)")
         return "end"
-    elif retry_count < config.MAX_REGENERATE_RETRIES:
+    elif retry_count <= config.MAX_REGENERATE_RETRIES:
+        logger.info(f"[should_regenerate] -> generate (retry_count={retry_count} <= {config.MAX_REGENERATE_RETRIES})")
         return "generate"
     else:
+        logger.info("[should_regenerate] -> end (max retries)")
         return "end"
 
 

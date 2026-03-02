@@ -37,9 +37,17 @@ python -m src.server
 
 ## Использование
 
-### Подключение к IDE
+### Запуск Docker
 
-Подключите MCP-сервер к вашей IDE (VS Code с расширением MCP, Claude Desktop и т.д.):
+```bash
+# Сборка и запуск
+docker compose up --build
+
+# Проверить статус
+docker compose ps
+```
+
+### Подключение к IDE (локальный Python)
 
 ```json
 {
@@ -50,6 +58,26 @@ python -m src.server
     }
   }
 }
+```
+
+### Подключение к IDE (Docker контейнер)
+
+```json
+{
+  "mcpServers": {
+    "rag-mcp": {
+      "command": "docker",
+      "args": ["exec", "-i", "rag-mcp-server", "python", "-m", "src.server"]
+    }
+  }
+}
+```
+
+Альтернативно, используйте `npx` с MCP Inspector:
+
+```bash
+# Подключение к работающему контейнеру
+docker exec -it rag-mcp-server python -m src.server
 ```
 
 ### Доступные инструменты

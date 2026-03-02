@@ -272,8 +272,23 @@ def index_status() -> Dict[str, Any]:
 
 def main():
     """Запуск MCP сервера."""
-    logger.info("Starting RAG MCP Server...")
-    mcp.run(transport="stdio")
+    import sys
+    
+    # Проверяем аргументы командной строки
+    transport = "stdio"
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--http":
+            transport = "http"
+    
+    logger.info(f"Starting RAG MCP Server with {transport} transport...")
+    try:
+        if transport == "http":
+            mcp.run(transport="http", host="0.0.0.0", port=8000)
+        else:
+            mcp.run(transport="stdio")
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        raise
 
 
 if __name__ == "__main__":

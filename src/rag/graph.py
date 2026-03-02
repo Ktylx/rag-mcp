@@ -1,12 +1,11 @@
 """
-LangGraph граф для Corrective RAG пайплайна.
+LangGraph граф для RAG пайплайна (упрощённая версия).
 """
 
 import logging
 from typing import Optional
 
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 
 from src.rag.state import RAGState, create_initial_state
 from src.rag.nodes import (
@@ -14,18 +13,9 @@ from src.rag.nodes import (
     retrieve_node,
     grade_documents_node,
     generate_node,
-    hallucination_check_node,
-    broaden_query_node,
-    should_continue_grade,
-    should_regenerate,
-    should_broaden,
 )
 
 logger = logging.getLogger(__name__)
-
-# Инициализируем граф
-workflow = StateGraph(RAGState)
-
 
 def create_rag_graph() -> StateGraph:
     """Создать LangGraph граф для RAG пайплайна.
@@ -33,56 +23,26 @@ def create_rag_graph() -> StateGraph:
     Returns:
         Скомпилированный граф.
     """
-    # Добавляем узлы
+    # Создаём новый граф при каждом вызове
+    workflow = StateGraph(RAGState)
+    
+    # Добавляем узлы (упрощённая схема без циклов)
     workflow.add_node("rewrite_query", rewrite_query_node)
     workflow.add_node("retrieve", retrieve_node)
     workflow.add_node("grade_documents", grade_documents_node)
     workflow.add_node("generate", generate_node)
-    workflow.add_node("hallucination_check", hallucination_check_node)
-    workflow.add_node("broaden_query", broaden_query_node)
     
     # Устанавливаем начальный узел
     workflow.set_entry_point("rewrite_query")
     
-    # Добавляем рёбра
+    # Линейный поток без условных переходов
     workflow.add_edge("rewrite_query", "retrieve")
     workflow.add_edge("retrieve", "grade_documents")
+    workflow.add_edge("grade_documents", "generate")
+    workflow.add_edge("generate", END)
     
-    # Условные переходы после оценки документов
-    workflow.add_conditional_edges(
-        "grade_documents",
-        should_continue_grade,
-        {
-            "generate": "generate",
-            "broaden_query": "broaden_query",
-        },
-    )
-    
-    # Цикл расширения запроса
-    workflow.add_conditional_edges(
-        "broaden_query",
-        should_broaden,
-        {
-            "retrieve": "retrieve",
-            "generate": "generate",
-        },
-    )
-    
-    workflow.add_edge("generate", "hallucination_check")
-    
-    # Условный переход после проверки на галлюцинации
-    workflow.add_conditional_edges(
-        "hallucination_check",
-        should_regenerate,
-        {
-            "end": END,
-            "generate": "generate",
-        },
-    )
-    
-    # Компилируем граф
-    checkpointer = MemorySaver()
-    compiled_graph = workflow.compile(checkpointer=checkpointer)
+    # Компилируем граф (без checkpointer для упрощения)
+    compiled_graph = workflow.compile()
     
     return compiled_graph
 
