@@ -16,6 +16,10 @@ from src.rag.graph import run_rag_pipeline
 from src.rag.prompts import SUMMARIZE_PROMPT
 from src.utils.ollama_client import get_llm
 
+
+# Значение по умолчанию для folder_path
+DEFAULT_FOLDER_PATH = str(config.get_sample_docs_dir())
+
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,7 +30,7 @@ mcp = FastMCP("RAG Knowledge Base")
 
 @mcp.tool()
 def index_folder(
-    folder_path: str,
+    folder_path: str = DEFAULT_FOLDER_PATH,
     glob_pattern: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Индексировать папку с документами.
@@ -34,12 +38,13 @@ def index_folder(
     Сканирует файлы, разбивает на чанки, создаёт эмбеддинги и сохраняет в ChromaDB.
     
     Args:
-        folder_path: Путь к папке с документами.
+        folder_path: Путь к папке с документами (по умолчанию: sample_docs).
         glob_pattern: Glob паттерн для фильтрации файлов (опционально).
         
     Returns:
         Словарь с результатами индексации.
     """
+    logger.info(f"Indexing folder: {folder_path}")
     path = Path(folder_path)
     
     if not path.exists():

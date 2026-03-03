@@ -3,6 +3,7 @@
 Все параметры вынесены в этот файл для удобства настройки.
 """
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -43,7 +44,41 @@ SUPPORTED_EXTENSIONS = {
 #   "http://localhost:11434" - локальный сервер
 #   "http://192.168.1.100:11434" - удалённый сервер
 #   "http://ollama:11434" - Docker Compose внутри сети
-OLLAMA_BASE_URL = "http://localhost:11434"
+#   "http://host.docker.internal:11434" - Docker с доступом к Ollama на хосте
+
+def _is_in_docker() -> bool:
+    """Проверить, запущен ли код внутри Docker контейнера."""
+    try:
+        with open("/proc/1/cgroup", "r") as f:
+            cgroup_content = f.read()
+            if "docker" in cgroup_content or "containerd" in cgroup_content:
+                return True
+    except (FileNotFoundError, PermissionError):
+        pass
+    return False
+
+
+def _get_ollama_url() -> str:
+    """Определить URL Ollama с учётом окружения (Docker или хост)."""
+    # Если явно задан в переменной окружения - используем его
+    if "OLLAMA_BASE_URL" in os.environ:
+        return os.environ["OLLAMA_BASE_URL"]
+    
+    if _is_in_docker():
+        return "http://host.docker.internal:11434"
+    
+    return "http://localhost:11434"
+
+
+def _get_app_base_dir() -> Path:
+    """Определить базовую директорию приложения."""
+    if _is_in_docker():
+        return Path("/app")
+    return Path(".")
+
+
+OLLAMA_BASE_URL = _get_ollama_url()
+APP_BASE_DIR = _get_app_base_dir()
 
 # Название модели для генерации ответов
 LLM_MODEL = "phi3:mini"
@@ -154,6 +189,11 @@ def get_chroma_path() -> Path:
 def get_ollama_url() -> str:
     """Получить URL Ollama сервера."""
     return OLLAMA_BASE_URL
+
+
+def get_sample_docs_dir() -> Path:
+    """Получить путь к директории с демо-документами."""
+    return APP_BASE_DIR / "sample_docs"
 
 
 def get_llm_model() -> str:
