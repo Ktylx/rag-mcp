@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 def rewrite_query_node(state: RAGState) -> RAGState:
     """Переформулировать запрос для более эффективного поиска.
     
+    NOTE: Rewriting temporarily disabled - using original question directly.
+    
     Args:
         state: Текущее состояние.
         
@@ -33,16 +35,11 @@ def rewrite_query_node(state: RAGState) -> RAGState:
         Обновлённое состояние.
     """
     question = state["question"]
-    llm = get_llm()
     
-    # Формируем промпт
-    prompt = QUERY_REWRITE_PROMPT.format(question=question)
+    logger.info(f"[rewrite_query_node] Using original question (rewriting disabled): {question}")
     
-    # Получаем переформулированный запрос
-    response = llm.invoke(prompt)
-    rewritten = response.content.strip()
-    
-    logger.info(f"Rewritten query: {rewritten}")
+    # Temporarily disabled - use original question
+    rewritten = question
     
     return {
         **state,
@@ -62,6 +59,8 @@ def retrieve_node(state: RAGState) -> RAGState:
     query = state["rewritten_query"]
     chroma = get_chroma_manager()
     
+    logger.info(f"[retrieve_node] Searching with query: '{query}' (k={config.DEFAULT_TOP_K})")
+    
     # Поиск документов
     documents = chroma.similarity_search(
         query=query,
@@ -74,7 +73,12 @@ def retrieve_node(state: RAGState) -> RAGState:
         for doc in documents
     ))
     
-    logger.info(f"Retrieved {len(documents)} documents")
+    logger.info(f"[retrieve_node] Retrieved {len(documents)} documents: {sources}")
+    
+    # Логируем превью каждого документа
+    for i, doc in enumerate(documents):
+        preview = doc.page_content[:150].replace("\n", " ")
+        logger.info(f"[retrieve_node] Doc {i+1} preview: {preview}...")
     
     return {
         **state,
@@ -86,6 +90,8 @@ def retrieve_node(state: RAGState) -> RAGState:
 def grade_documents_node(state: RAGState) -> RAGState:
     """Оценить релевантность документов к запросу.
     
+    Использует LLM для оценки релевантности каждого документа.
+    
     Args:
         state: Текущее состояние.
         
@@ -94,28 +100,44 @@ def grade_documents_node(state: RAGState) -> RAGState:
     """
     question = state["question"]
     documents = state["documents"]
+    
     llm = get_llm(temperature=0.0)
     
     graded_docs = []
+    irrelevant_docs = []
     
-    for doc in documents:
+    logger.info(f"[grade_documents_node] Grading {len(documents)} documents...")
+    
+    for i, doc in enumerate(documents):
         # Формируем промпт для оценки
+        doc_text = doc.page_content[:1000]  # Ограничиваем длину документа
+        
         prompt = GRADE_DOCUMENTS_PROMPT.format(
             question=question,
-            document=doc.page_content[:500],  # Ограничиваем длину
+            document=doc_text,
         )
         
-        # Получаем оценку
+        # Получаем оценку от LLM
         response = llm.invoke(prompt)
         grade = response.content.strip().lower()
         
-        if "yes" in grade:
+        is_relevant = "yes" in grade
+        
+        source = doc.metadata.get("source", "unknown")
+        
+        if is_relevant:
             graded_docs.append(doc)
-            logger.info(f"Document graded as relevant: {doc.metadata.get('source')}")
+            logger.info(f"[grade_documents_node] Doc {i+1} [{source}]: RELEVANT")
         else:
-            logger.info(f"Document graded as not relevant: {doc.metadata.get('source')}")
+            irrelevant_docs.append(doc)
+            logger.info(f"[grade_documents_node] Doc {i+1} [{source}]: NOT RELEVANT")
     
-    logger.info(f"Graded {len(graded_docs)} relevant documents out of {len(documents)}")
+    # Если нет релевантных документов, используем fail-open
+    if not graded_docs:
+        logger.warning(f"[grade_documents_node] No relevant docs found - using fail-open")
+        graded_docs = documents
+    
+    logger.info(f"[grade_documents_node] Final: {len(graded_docs)} relevant documents (filtered from {len(documents)})")
     
     return {
         **state,

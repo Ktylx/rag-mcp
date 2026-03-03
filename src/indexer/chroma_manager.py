@@ -49,10 +49,10 @@ class ChromaManager:
                 base_url=config.OLLAMA_BASE_URL,
             )
         else:
-            # Используем дефолтную модель ChromaDB
-            return OllamaEmbeddings(
-                model="nomic-embed-text",
-                base_url=config.OLLAMA_BASE_URL,
+            # Используем дефолтную модель ChromaDB (HuggingFace)
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+            return HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
             )
 
     def _get_client(self) -> chromadb.PersistentClient:

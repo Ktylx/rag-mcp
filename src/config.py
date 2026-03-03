@@ -52,7 +52,7 @@ LLM_MODEL = "phi3:mini"
 EMBEDDING_MODEL = "nomic-embed-text"
 
 # Использовать Ollama для эмбеддингов (иначе - ChromaDB default)
-USE_OLLAMA_EMBEDDINGS = False
+USE_OLLAMA_EMBEDDINGS = True
 
 # Таймаут для запросов к Ollama (секунды)
 OLLAMA_TIMEOUT = 120
@@ -61,7 +61,7 @@ OLLAMA_TIMEOUT = 120
 # Параметры RAG
 # ===================
 # Количество документов для извлечения при поиске
-DEFAULT_TOP_K = 5
+DEFAULT_TOP_K = 30
 
 # Максимальное количество попыток регенерации при галлюцинациях
 MAX_REGENERATE_RETRIES = 1
@@ -88,61 +88,61 @@ MCP_PORT = 8000
 # Prompt шаблоны
 # ===================
 
-# Промпт для переформулирования запроса
-QUERY_REWRITE_PROMPT = """Переформулируй следующий запрос так, чтобы он был более эффективным для поиска в базе знаний.
+# Prompt for query rewriting (keep in English to match document language)
+QUERY_REWRITE_PROMPT = """Rewrite the following question to make it more effective for semantic search in a knowledge base. Keep the essence of the question but rephrase it with different words.
 
-Текущий запрос: {question}
+Question: {question}
 
-Переформулированный запрос:"""
+Rewritten question:"""
 
-# Промпт для оценки релевантности документов
-GRADE_DOCUMENTS_PROMPT = """Определи, релевантен ли каждый документ к запросу пользователя.
+# Prompt for grading document relevance
+GRADE_DOCUMENTS_PROMPT = """Determine if the document is relevant to the user's query.
 
-Запрос: {question}
+Query: {question}
 
-Документ: {document}
+Document: {document}
 
-Ответь ТОЛЬКО одним словом: "yes" если документ релевантен, "no" если нет."""
+Answer with ONLY one word: "yes" if the document is relevant, "no" if it is not relevant."""
 
-# Промпт для генерации ответа
-GENERATION_PROMPT = """Ты - ассистент, который отвечает на вопросы на основе предоставленных документов.
+# Prompt for answer generation
+GENERATION_PROMPT = """You are an assistant that answers questions based on the provided documents.
 
-Используй ТОЛЬКО информацию из предоставленных документов. Если информации недостаточно, честно скажи об этом.
+Use ONLY information from the provided documents. If the information is insufficient, honestly say so.
 
-Запрос: {question}
+Query: {question}
 
-Документы:
+Documents:
 {documents}
 
-Ответь на запрос на основе документов. После ответа укажи источники в формате:
-Источники: {sources}"""
+Answer the query based on the documents. After your answer, list the sources in this format:
+Sources: {sources}"""
 
-# Промпт для проверки на галлюцинации
-HALLUCINATION_CHECK_PROMPT = """Проверь, основан ли сгенерированный ответ на предоставленных документах.
+# Prompt for hallucination check
+HALLUCINATION_CHECK_PROMPT = """Check if the generated answer is based on the provided documents.
 
-Запрос: {question}
+Query: {question}
 
-Сгенерированный ответ: {generation}
+Generated answer: {generation}
 
-Документы:
+Documents:
 {documents}
 
-Ответь ТОЛЬКО одним словом: "yes" если ответ основан на документах, "no" если содержит информацию не из документов."""
+Answer with ONLY one word: "yes" if the answer is based on the documents, "no" if it contains information not from the documents."""
 
-# Промпт для расширения запроса
-BROADEN_QUERY_PROMPT = """Расширь и переформулируй запрос, чтобы найти больше релевантных документов.
+# Prompt for broadening query
+BROADEN_QUERY_PROMPT = """Broaden and rewrite the query to find more relevant documents.
 
-Текущий запрос: {question}
-Найдено документов: {doc_count}
+Current query: {question}
+Documents found: {doc_count}
 
-Расширенный запрос:"""
+Broadened query:"""
 
-# Промпт для саммари документа
-SUMMARIZE_PROMPT = """Создай краткое саммари предоставленного документа.
+# Prompt for summarization
+SUMMARIZE_PROMPT = """Create a brief summary of the provided document.
 
-Документ: {document}
+Document: {document}
 
-Саммари:"""
+Summary:"""
 
 
 def get_chroma_path() -> Path:
