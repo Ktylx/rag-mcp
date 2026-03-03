@@ -13,12 +13,15 @@ MCP-сервер с локальной LLM и LangGraph для RAG (Retrieval-Au
 
 ### Docker Compose
 
-```bash
-# Запуск всех сервисов
-docker compose up
+> **Важно:** Ollama не входит в Docker и должен быть запущен локально отдельно.
 
-# Ожидание загрузки модели (при первом запуске)
-docker compose logs -f ollama
+```bash
+# 1. Запустить Ollama локально (отдельным терминалом)
+ollama serve
+ollama pull phi3:mini
+
+# 2. Запустить Docker контейнер
+docker compose up
 ```
 
 ### Локальный запуск
@@ -40,12 +43,17 @@ python -m src.server
 ### Запуск Docker
 
 ```bash
-# Сборка и запуск
+# Сборка и запуск (Ollama должен быть запущен локально)
 docker compose up --build
 
 # Проверить статус
 docker compose ps
 ```
+
+> **Требования:** Перед запуском Docker убедитесь, что Ollama работает локально:
+> ```bash
+> ollama serve
+> ```
 
 ### Подключение к IDE (локальный Python)
 
