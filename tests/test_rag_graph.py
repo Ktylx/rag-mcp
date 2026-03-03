@@ -48,7 +48,10 @@ class TestRAGNodes:
     
     @patch("src.rag.nodes.get_llm")
     def test_rewrite_query_node(self, mock_get_llm):
-        """Test query rewriting node."""
+        """Test query rewriting node.
+        
+        Query rewriting uses LLM to improve search effectiveness.
+        """
         mock_llm = Mock()
         mock_llm.invoke.return_value = Mock(content="What is Python programming?")
         mock_get_llm.return_value = mock_llm
@@ -56,6 +59,8 @@ class TestRAGNodes:
         state = create_initial_state("What is Python?")
         result = rewrite_query_node(state)
         
+        # LLM is called to rewrite the query
+        mock_llm.invoke.assert_called_once()
         assert result["rewritten_query"] == "What is Python programming?"
         assert result["question"] == "What is Python?"
     

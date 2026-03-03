@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 def rewrite_query_node(state: RAGState) -> RAGState:
     """Переформулировать запрос для более эффективного поиска.
     
-    NOTE: Rewriting temporarily disabled - using original question directly.
-    
     Args:
         state: Текущее состояние.
         
@@ -35,11 +33,18 @@ def rewrite_query_node(state: RAGState) -> RAGState:
         Обновлённое состояние.
     """
     question = state["question"]
+    llm = get_llm()
     
-    logger.info(f"[rewrite_query_node] Using original question (rewriting disabled): {question}")
+    logger.info(f"[rewrite_query_node] Rewriting question: {question}")
     
-    # Temporarily disabled - use original question
-    rewritten = question
+    # Формируем промпт для переформулирования запроса
+    prompt = QUERY_REWRITE_PROMPT.format(question=question)
+    
+    # Получаем переформулированный запрос от LLM
+    response = llm.invoke(prompt)
+    rewritten = response.content.strip()
+    
+    logger.info(f"[rewrite_query_node] Rewritten query: {rewritten}")
     
     return {
         **state,
