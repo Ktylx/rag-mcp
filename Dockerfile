@@ -9,10 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Установка зависимостей Python
 COPY pyproject.toml .
+COPY pytest.ini .
 RUN pip install --no-cache-dir -e ".[dev]"
 
 # Копирование исходного кода
 COPY src/ ./src/
+COPY tests/ ./tests/
 
 # Создание директорий
 RUN mkdir -p /app/chroma_data /app/sample_docs
