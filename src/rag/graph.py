@@ -1,5 +1,5 @@
 """
-LangGraph граф для RAG пайплайна (упрощённая версия).
+LangGraph граф для RAG пайплайна (Corrective RAG).
 """
 
 import logging
@@ -13,12 +13,28 @@ from src.rag.nodes import (
     retrieve_node,
     grade_documents_node,
     generate_node,
+    hallucination_check_node,
+    broaden_query_node,
+    should_continue_grade,
+    should_regenerate,
+    should_broaden,
 )
 
 logger = logging.getLogger(__name__)
 
 def create_rag_graph() -> StateGraph:
-    """Создать LangGraph граф для RAG пайплайна.
+    """Создать LangGraph граф для RAG пайплайна (Corrective RAG).
+    
+    Flow:
+    1. rewrite_query - переформулировать запрос
+    2. retrieve - извлечь документы
+    3. grade_documents - оценить релевантность
+    4a. enough relevant → generate
+    4b. too few → broaden_query → retrieve (loop)
+    5. generate - сгенерировать ответ
+    6. hallucination_check - проверить на галлюцинации
+    7a. grounded → end
+    7b. not grounded → regenerate (max 1 retry)
     
     Returns:
         Скомпилированный граф.
@@ -26,22 +42,60 @@ def create_rag_graph() -> StateGraph:
     # Создаём новый граф при каждом вызове
     workflow = StateGraph(RAGState)
     
-    # Добавляем узлы (упрощённая схема без циклов)
+    # Добавляем все узлы (полная схема Corrective RAG)
     workflow.add_node("rewrite_query", rewrite_query_node)
     workflow.add_node("retrieve", retrieve_node)
     workflow.add_node("grade_documents", grade_documents_node)
     workflow.add_node("generate", generate_node)
+    workflow.add_node("hallucination_check", hallucination_check_node)
+    workflow.add_node("broaden_query", broaden_query_node)
     
     # Устанавливаем начальный узел
     workflow.set_entry_point("rewrite_query")
     
-    # Линейный поток без условных переходов
+    # rewrite → retrieve
     workflow.add_edge("rewrite_query", "retrieve")
-    workflow.add_edge("retrieve", "grade_documents")
-    workflow.add_edge("grade_documents", "generate")
-    workflow.add_edge("generate", END)
     
-    # Компилируем граф (без checkpointer для упрощения)
+    # retrieve → grade_documents
+    workflow.add_edge("retrieve", "grade_documents")
+    
+    # grade_documents → conditional (generate или broaden_query)
+    # Если enough relevant → generate, иначе → broaden_query
+    workflow.add_conditional_edges(
+        "grade_documents",
+        should_continue_grade,
+        {
+            "generate": "generate",
+            "broaden_query": "broaden_query",
+        }
+    )
+    
+    # broaden_query → conditional (retrieve или generate)
+    # Если не превышен лимит циклов → retrieve, иначе → generate
+    workflow.add_conditional_edges(
+        "broaden_query",
+        should_broaden,
+        {
+            "retrieve": "retrieve",
+            "generate": "generate",
+        }
+    )
+    
+    # generate → hallucination_check
+    workflow.add_edge("generate", "hallucination_check")
+    
+    # hallucination_check → conditional (end или generate для retry)
+    # Если grounded → end, иначе → generate для регенерации
+    workflow.add_conditional_edges(
+        "hallucination_check",
+        should_regenerate,
+        {
+            "end": END,
+            "generate": "generate",  # retry - регенерировать ответ
+        }
+    )
+    
+    # Компилируем граф
     compiled_graph = workflow.compile()
     
     return compiled_graph

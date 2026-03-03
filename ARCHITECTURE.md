@@ -56,7 +56,7 @@ LangGraph-based retrieval-augmented generation pipeline:
 
 - **OllamaClient** (`ollama_client.py`) - Manages LLM and embedding connections
 
-## Data Flow
+## Data Flow (Corrective RAG)
 
 ```
 User Query
@@ -66,13 +66,27 @@ rewrite_query (LLM)
 retrieve (Vector Search)
     ↓
 grade_documents (LLM)
-    ↓ (if enough relevant)
-generate (LLM)
     ↓
-hallucination_check (LLM)
-    ↓ (if not grounded, retry)
-Return Answer + Sources
+    ├─→ enough relevant ──→ generate (LLM)
+    │                           ↓
+    │                    hallucination_check (LLM)
+    │                           ↓
+    │                    ├─→ grounded ──→ END
+    │                    └─→ not grounded ──→ regenerate (retry)
+    │
+    └─→ too few relevant ──→ broaden_query (LLM)
+                                   ↓
+                              retrieve ←←← (loop, max 2)
 ```
+
+## Corrective RAG Features
+
+- **Query Rewriting**: Improves search effectiveness
+- **Document Grading**: Filters irrelevant documents
+- **Query Broadening**: Expands query when too few results (max 2 loops)
+- **Hallucination Check**: Verifies answer is grounded in documents
+- **Regeneration**: Retry on hallucination (max 1 retry)
+- **Fail-open**: Uses all retrieved docs if none are graded as relevant
 
 ## Configuration
 
